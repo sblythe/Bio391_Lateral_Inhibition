@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+    <!-- Author: Shelby Blythe, March 2025 -->
+<head>
+    <meta charset="UTF-8">
+    <meta name = "author" content = "Shelby Blythe">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notch-Delta Simulation</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; }
+        canvas { border: 1px solid black; margin-top: 10px; display: block; margin-left: auto; margin-right: auto; }
+        .slider-container { margin: 10px; }
+        .legend {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: black;
+            padding: 10px;
+            color: white;
+            font-size: 14px;
+            border-radius: 5px;
+        }
+        .legend div {
+            display: flex;
+            align-items: center;
+            margin-top: 5px;
+        }
+        .legend span {
+            width: 20px;
+            height: 20px;
+            display: inline-block;
+            margin-right: 10px;
+        }
+    </style>
+    <!-- Add MathJax to support LaTeX-style equations -->
+<script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  <script type="text/javascript" async
+    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+  </script>
+</head>
+<body>
+    <h1>Notch-Delta Lateral Inhibition Simulation</h1>
+    <div style="display: flex; align-items: center;">
+        <canvas id="simulationCanvas" width="800" height="500"></canvas>
+        <canvas id="colorbarCanvas" width="100" height="300"></canvas>
+    </div>
+
+    <button id="startStopButton">Start Simulation</button>
+    <button id="resetButton">Reset Simulation</button>
+
+    <div class="slider-container">
+        <label>Notch Protein Synthesis (αN): <span id="alphaNLabel">1.0</span></label>
+        <input type="range" id="alphaN" min="0" max="4" step="0.1" value="2.0">
+    </div>
+    <div class="slider-container">
+        <label>Notch Protein Degradation (βN): <span id="betaNLabel">0.1</span></label>
+        <input type="range" id="betaN" min="0" max="2" step="0.1" value="1.0">
+    </div>
+    <div class="slider-container">
+        <label>Delta Protein Synthesis (αD): <span id="alphaDLabel">1.0</span></label>
+        <input type="range" id="alphaD" min="0" max="4" step="0.1" value="2">
+    </div>
+    <div class="slider-container">
+        <label>Delta Protein Degradation (βD): <span id="betaDLabel">0.1</span></label>
+        <input type="range" id="betaD" min="0" max="4" step="0.1" value="2.0">
+    </div>
+    <div class="slider-container">
+        <label>Notch Repression of <i>Delta</i> mRNA Expression (γD): <span id="gammaDLabel">1.0</span></label>
+        <input type="range" id="gammaD" min="0" max="10" step="0.1" value="5">
+    </div>
+    <div class="slider-container">
+        <label>Delta Cis-Inhibition of Notch Signaling (λ): <span id="lambdaLabel">1.0</span></label>
+        <input type="range" id="lambda" min="0" max="4" step="0.05" value="0.2">
+    </div>
+
+    <div id="explanation" style="max-width: 800px; margin: 20px auto; text-align: left; font-size: 16px; line-height: 1.75;">
+        <h2>Model Equations</h2>
+        <p>
+            This lateral inhibition model takes in to account the production of Notch (N) and Delta (D) and estimates the magnitude of Notch signaling pathway activity given the expression level of Notch in the receiving cell and the average expression of Delta in the surrounding cells. The "inhibition" part of the model comes from two sources. First, the magnitude of Notch signaling activity results in transcriptional repression of Delta expression within the receiving cell, thus reducing the amount of Delta that is produced to activate Notch signaling in neighboring cells. Second, Notch signaling output in a cell is inhibited in <i>cis</i> in proportion to the amount of Delta expressed in the same cell. It is modeled within a field of hexagon-shaped cells that start with random amounts of Notch pathway activity. 
+            
+            The key equations are:
+        </p>
+        <p>
+            Notch receptor Concentration:  
+            \[
+            \frac{dN}{dt} = \alpha_N - \beta_N N
+            \]
+        </p>
+        <p>
+            Delta ligand Concentration:  
+            \[
+            \frac{dD}{dt} = \alpha_D - \beta_D D - \gamma_D (S_N)
+            \]
+        </p>
+        <p>
+            Notch Signal Transduction Pathway Activity:  
+            \[
+            S_N = N \cdot \bar{D} - \lambda D
+            \]
+        </p>
+        <p>
+            Where:
+            <ul>
+                <li>\( \alpha_N \), \( \alpha_D \): Production rates of Notch and Delta</li>
+                <li>\( \beta_N \), \( \beta_D \): Degradation rates of Notch and Delta</li>
+                <li>\( \gamma_D \): Strength of Notch-dependent repression of <i>Delta</i> RNA expression (in <i>cis</i>)</li>
+                <li>\( D \) and \( N \): Delta and Notch Concentration (in <i>cis</i>)</li>
+                <li>\( \bar{D} \): Average Delta Concentration in neighboring cells (in <i>trans</i>)</li>
+                <li>\( \lambda \): Strength of <i>cis</i>-inhibition</li>
+            </ul>
+        </p>
+        <p>
+            This model is meant to allow for exploration of process of lateral inhibition by Notch-Delta signaling and hopefully serves to illustrate how collective behaviors of cells in a field can results in long-range pattern. Using the <i>Drosophila</i> neural ectoderm as an example of this process, we expect that conditions can be found where Notch signaling is suppressed in individual cells, surrounded by a field of cells that are subject to high levels of Notch signaling. Because in this scenario, "high N" inhibits, and "low N" promotes specification of a neuroblast, the final set of "low N" cells would reflect the cells that go on to make the neuronal cells of the ventral nerve cord.
+        </p>
+        <p>
+            We have certain expectations:
+            <ul>
+                <li>Good parameter settings are tolerant to 50% reductions in N and D production since neuroblasts form in mutant embryos heterozygous for Notch and Delta mutations. How we define "tolerant" is probably up for debate, but we do not expect a complete loss of pattern formation with these kinds of 50% reductions. </li>
+                <li>Complete loss of either N or D production should result in complete conversion of the field to a "low N" state, resulting in an all-neural fate.</li>
+                <li>Over-activation of N signaling should result in complete conversion of the field to a "high N" fate, corresponding to an all non-neural fate.</li>
+                <li>There are perhaps several configurations of the parameters that will yield an acceptable pattern. These will probably differ, however, in how robust the parameters are to minor perturbations, or the rate at which the pattern emerges during simulation.</li>
+            </ul>
+        </p>
+        <h2>Explanation by component</h2>
+        <p>
+            The modeling of Notch receptor levels is straightforward, in that we assume that Notch protein can be expressed in all of the participatory cells, and that its expression will be subject to a synthesis and degradation term. The amount of Notch produced in any given timeframe is the difference between the production and the degradation rates. 
+            \[
+            \frac{dN}{dt} = \alpha_N - \beta_N N
+            \]
+            Note that, from a biological standpoint, we are assuming that Notch expression is constitutive in the field of cells and that there are no modeled inputs to the expression of <i>Notch</i> mRNA. The model initiates with a random distribution of Notch (and Delta) expression levels, so a weird behavior of the model is that setting both the synthesis and degradation of Notch to zero will allow the model to progress with the initial, random Notch concentration values.
+        </p>
+        <p>
+            Modeling Delta ligand levels is more complicated, since not only is Delta expression governed by synthesis and degradation terms, but also through inhibitory feedback governed by the amount of Notch signal transduction pathway activity. The Notch signal transduction pathway activity itself is a function of the Notch concentration (in <i>cis</i>), and the average concentration of Delta in neighboring cells (in <i>trans</i>). So, like for Notch, we account for Delta synthesis and degradation like so, 
+            \[
+            \frac{dD}{dt} = \alpha_D - \beta_D D ...
+            \]
+            but we must also model the inhibitory effect of Notch signaling on Delta production.
+            \[
+            \ - \gamma_D (S_N)
+            \]
+            From a biological standpoint, the concentration of Delta in any one cell is a product of how much Notch signaling that cell sees, which is a consequence of the Delta expression in the neighboring cells. If a receiving cell, however, expresses high levels of Delta, this attenuates the magnitude of the Notch signaling, which in turn slows the rate at which Notch activity down-regulates <i>Delta</i> mRNA expression. 
+        </p>
+        <p>
+            The Notch Signal Transduction pathway activity is the product of Notch expression in the receiving cell, and the average concentration of Delta ligands presented on the neighboring cells. Also, because the Notch receptor can be inhibited by Delta ligands in <i>cis</i>, we model this by subtracting a term reflecting this from the amount of 'liganded' Notch receptors in order to approximate the behavior.   
+            \[
+            S_N = N \cdot \bar{D} - \lambda D
+            \]
+            Because the Notch-dependent inhibition of <i>Delta</i> mRNA expression occurs at the level of transcriptional control, we also include in the model a bit of random noise to account for inherent noise in the transcriptional regulatory process.
+        </p>
+        <h2>Exploring the Model</h2>
+        <p>
+            <li>A cynical view of mathematical modeling would be that some combination of equations would always yield patterns like the ones associated with the default parameters. Choose some random parameters. Do they always yield the same pattern?</li>
+            <li>Say you want to simulate the reduction of Notch expression by 50%. What parameter/s would you need to change? Is there a difference between reducing synthesis by half and doubling degradation?</li>
+            <li>As described above, we know that, for instance, complete loss of either Notch or Delta function (i.e., homozygosity for loss of function mutants at either locus) results in over-production of neural progenitors. Does the model recapitulate this key expectation?</li>
+            <li>Over-activation of the Notch pathway should have the opposite effect. Notch signaling should be high everywhere and the effect of this would be to inhibit all neural progenitor specification.</li>
+            <li>What about over-activation of Delta? What is predicted from developmental genetics, and what does the mathematical model tell us?</li>
+            <li>What are the sensitivities of the model to changes in the negative feedback components? Is <i>cis</i>-inhibition important to the model output? What about Notch-dependent inhibition of <i>Delta</i> mRNA expression?</li>
+        </p>
+    </div>
+
+    <script src="LI_v3.js"></script>
+</body>
+<footer>
+    <p>Author: Shelby Blythe, Northwestern University, March 2025</p>
+</footer>
+</html>
